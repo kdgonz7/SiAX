@@ -18,14 +18,15 @@
 #define INFO_HDR 0xAB
 
 // --- Instructions ---
-#define INT   0xEF    // INT [id] - calls an interrupt, a blocking execution of
-                      // a certain functionality in the system. Interrupts have
-                      // full access to the stack, and results can be pushed
-                      // into the stack.
+#define INT   0xEF        // INT [id] - calls an interrupt, a blocking execution of
+                          // a certain functionality in the system. Interrupts have
+                          // full access to the stack, and results can be pushed
+                          // into the stack.
 
-#define PUSH  0xAD    // PUSH [n] - pushes N into the stack.
-#define POP   0xAC    // POP - pops an item from the stack and releases it from
-                      // memory.
+#define PUSH  0xAD        // PUSH [n] - pushes N into the stack.
+#define POP   0xAC        // POP - pops an item from the stack and releases it from
+                          // memory.
+#define MAGIC_STOP 0xEFB  // To end the bytecode.
 
 #define IVT_SIZE 199
 #define MAX_EXCEPT 200
@@ -122,8 +123,6 @@ void* r_alloc(RollocFreeList* freelist, size_t size, bool usable) {
   // pointer -> as it's already added to the freelist.
 }
 
-
-
 /* reallocate 
  * check if there's a reusable chunk of a similar size.
  * otherwise reallocate the pointer. O(n) */
@@ -191,6 +190,8 @@ vivt32 * createvt (size_t ivt_s) {
   
   assert(vt->ivt);
   
+  memset(vt->ivt, 0, vt->ivt_size * sizeof(ivtfn32));
+
   return vt;
 }
 
@@ -243,6 +244,27 @@ Order* ordering(CPU * cpu) {
   return od;
 }
 
+void ord_append(Order* order, byte * data, int size) {
+  assert(order);
+
+  int p = 0;
+
+  // make data size bigger
+  if (! order->data) {
+    order->data = calloc(size, sizeof(byte));
+    order->data_size = size;
+  } else {
+    order->data = realloc(order->data, order->data_size + size);
+    order->data_size += size;
+    p = order->data_size;
+  }
+
+  // offset order->data by p in case we are appending data.
+  memcpy(order->data + p, data, size);
+}
+
+
+
 typedef enum cpu_state_t {
   OFF,
   WAITING,
@@ -262,8 +284,27 @@ struct CPU {
   vivt32 *ivt;           // hashes that hold certain actions, these are blocking
 
   RollocFreeList * memory_chain;  // contiguous list of memory allocated by the CPU as requested.
+
   int * cpes;                     // The exception Stack, you can view the last exception code, etc.
+  int cpes_size;
+  int cpes_cap;
+
+  Order* internal;                // internal management.
 };
+
+// where the PC is currently.
+byte ord_cur(Order* order) {
+  assert(order);
+
+  if (order->ref->pc > order->data_size) {
+    return -1;
+  }
+
+  return order->data[order->ref->pc];
+}
+
+
+
 
 typedef int (*ivtfn32)(CPU*);
 
@@ -283,11 +324,21 @@ CPU * vcpu(struct cpu_settings_t settings) {
     abort();
   }
 
+  cpu->state = OFF;
   cpu->verbose = ! settings.silent;
   cpu->pc = 0;
   cpu->ivt = createvt(IVT_SIZE);
   cpu->memory_enabled = settings.allow_memory_allocation;
-  cpu->cpes = calloc(MAX_EXCEPT, sizeof(int));
+
+  cpu->cpes = calloc(MAX_EXCEPT, sizeof(int)); 
+  assert(cpu->cpes);
+
+  cpu->cpes_size = 0;
+  cpu->cpes_cap = MAX_EXCEPT;
+
+  cpu->internal = ordering(cpu);
+  
+  assert(cpu->internal);
 
   if (cpu->memory_enabled) {
     cpu->memory_chain = r_new_free_list();
@@ -301,6 +352,72 @@ CPU * vcpu(struct cpu_settings_t settings) {
   return cpu; // TODO 
 }
 
+// binding of ord_append
+void cpu_exe(CPU* vcpu, byte* info, size_t size) {
+  assert(vcpu);
+  assert(info);
+
+  ord_append(vcpu->internal, info, size);
+}
+
+// raises a CPU exception.
+//
+// This function is not throwable.
+void cpu_raise(CPU* vcpu, int code) {
+  assert(vcpu);
+
+  // double the capacity
+  if (vcpu->cpes_size >= vcpu->cpes_cap) 
+  {
+    vcpu->cpes_cap *= 2;
+    vcpu->cpes = realloc(vcpu->cpes, vcpu->cpes_cap);
+  }
+
+  // set the last member to the code
+  // move to next member
+  vcpu->cpes[vcpu->cpes_size ++] = code;
+}
+
+// binding of ord_cur
+byte cpu_cur(CPU* vcpu) {
+  assert(vcpu);
+  assert(vcpu->internal);
+
+  if (vcpu->pc == vcpu->internal->data_size) {
+    return -1;
+  }
+  
+  return ord_cur(vcpu->internal);
+}
+
+// return current byte and move to the next one (move PC)
+byte cpu_next1(CPU* vcpu) {
+  assert(vcpu);
+  assert(vcpu->internal);
+
+  if (vcpu->pc > vcpu->internal->data_size) {
+    if (vcpu->verbose) {
+      printf("stax: [CPU]: EOB(399): end of bytecode\n");
+    }
+    cpu_raise(vcpu, 399);
+    return 0;
+  }
+
+  byte n = cpu_cur(vcpu);
+
+  vcpu->pc ++;
+
+  return n;
+}
+
+// access the last CPU exception
+//
+// This function is not throwable.
+int cpu_n0(CPU* vcpu) {
+  if (! vcpu) return 758;
+  return vcpu->cpes[vcpu->cpes_size - 1];
+}
+
 // allocate memory in the internal CPU memory chain.
 // access will be DENIED if 
 void* cpu_alloc(CPU* vcpu, size_t size) {
@@ -308,6 +425,7 @@ void* cpu_alloc(CPU* vcpu, size_t size) {
     if (vcpu->verbose) {
       fprintf(stderr, "stax: [CPU]: permission denied\n");
     }
+    cpu_raise(vcpu, 102); // 102 - MPDENIED
     return NULL;
   }
 
@@ -317,7 +435,58 @@ void* cpu_alloc(CPU* vcpu, size_t size) {
   return (chunk);
 }
 
+// Turns CPU either ON or OFF
+void cpu_toggle(CPU* vcpu) {
+  assert(vcpu);
 
+  vcpu->state = (vcpu->state == ON) ? OFF : ON;
+}
+
+// runs the loaded in bytecode based on the CPU's current settings. 
+// Keeps all data in place, so added data can be reused. 
+// The PC does not change.
+// This function runs based on the IVT.
+int cpu_ivtr0(CPU * vcpu) {
+  assert(vcpu);
+  assert(vcpu->internal);
+
+  if (vcpu->state != ON) {
+    return -1;
+  }
+  
+  while (cpu_cur(vcpu) != MAGIC_STOP) {
+    byte n = cpu_next1(vcpu);
+
+    if (cpu_n0(vcpu) == 399 || n == -1) {
+      if (vcpu->verbose) {
+        printf("stax: [CPU]: EOB(399): premature end\n");
+      }
+      break;
+    }
+
+    if (vcpu->ivt->ivt[n] != NULL) {
+      vcpu->state = WAITING;
+      
+      int prepc = vcpu->pc;
+
+      vcpu->ivt->ivt[n](vcpu);
+
+      int postpc = vcpu->pc - prepc;
+
+      if (vcpu->verbose) {
+        printf("stax: [CPU]: instruction '0x%.04X' completed; occupied %d bytes\n", n, postpc);
+      }
+
+      vcpu->state = ON;
+    } else {
+      if (vcpu->verbose) {
+        printf("stax: [CPU]: note: dead code here (pc=%d)\n", vcpu->pc);
+      }
+    }
+  }
+
+  return 0;
+}
 
 int test_reusable_chunks(void) {
   RollocFreeList * list = r_new_free_list();
@@ -346,9 +515,8 @@ int test_cpu_instruction_hash(void) {
   return 0;
 }
 
-int test ( CPU * ) {  
+int test ( CPU * cpu ) {  
   printf("Hello, world!\n");
-
   return 0;
 }
 
@@ -362,11 +530,30 @@ int test_cpu_make(void) {
   CPU * vcp = vcpu(settings);
   ivt_map(vcp->ivt, test, "TEST", true);
 
-  vcp->ivt->ivt[0x00AF](NULL);
-  
+  assert(vcp->verbose);
+
+  vcp->ivt->ivt[0x00AF](vcp);
+
+  cpu_raise(vcp, 655);
+
+  printf("%d\n", cpu_n0(vcp));
+
+  byte * data = malloc(30 * sizeof (byte));
+
+  data[0] = 0x00AF;
+  data[1] = 3;
+  data[2] = MAGIC_STOP;
+
+  cpu_exe(vcp, data, 5);
+
+  cpu_toggle(vcp);
+
+  cpu_ivtr0(vcp);
 
   return 0;
 }
+
+// int test_order(void) { }
 
 int main(void) {
   test_reusable_chunks();
