@@ -7,7 +7,8 @@
   A list of exceptions that STAX provides.
 
     - 758 - This code can only be returned by the `cpu_n0` function which occurs when the CPU does not exist.
-    - 102 - Memory Permission Denied. When an allocation is made on a CPU that is not memory enabled (does not have a memory chain)
+    - 102 - Memory Permission Denied. When an allocation/action is made on a CPU that is not memory enabled (does not have a memory chain)
+    - 744 - PUT_PAST_RANGE, when you attempt to use the PUT instruction in a block that can't go to the location.
     - 399 - EOB (End of Bytecode)
 
 1.2 CPU State
@@ -17,5 +18,9 @@
   only see the ON and OFF states.
 
 2.2
-======
+=====
 
+3.0 Instructions
+=====
+  - `00c0` : ALLOCH - Allocates a block on the memory chain.
+  - `0046` : PUT    - Puts a byte into a memory chain block.

@@ -457,7 +457,7 @@ int cpu_ivtr0(CPU * vcpu) {
   while (cpu_cur(vcpu) != MAGIC_STOP) {
     byte n = cpu_next1(vcpu);
 
-    if (cpu_n0(vcpu) == 399 || n == -1) {
+    if (n == -1) {
       if (vcpu->verbose) {
         printf("stax: [CPU]: EOB(399): premature end\n");
       }
@@ -486,6 +486,39 @@ int cpu_ivtr0(CPU * vcpu) {
   }
 
   return 0;
+}
+
+// Returns the amount of memory blocks the CPU has.
+size_t cpu_blks(CPU* cpu) {
+  assert(cpu);
+  assert(cpu->memory_chain);
+  
+  RollocNode* tmp = cpu->memory_chain->root;
+
+  int blocks = 0;
+
+  while (tmp) {
+    tmp = tmp->next;
+    blocks++;
+  }
+
+  return blocks;
+}
+// Returns the total amount of memory in use by the CPU in its current state.
+size_t cpu_tum(CPU* cpu) {
+  assert(cpu);
+  assert(cpu->memory_chain);
+  
+  RollocNode* tmp = cpu->memory_chain->root;
+
+  int dsz = 0;
+
+  while (tmp) {
+    dsz += tmp->size;
+    tmp = tmp->next;
+  }
+
+  return dsz;
 }
 
 int test_reusable_chunks(void) {
@@ -553,11 +586,83 @@ int test_cpu_make(void) {
   return 0;
 }
 
+RollocNode* node_at(CPU* cpu, size_t place) {
+  assert(cpu);
+
+  int p = 0;
+  RollocNode* tmp = cpu->memory_chain->root;
+
+  while (tmp) {
+    if (p == place) return tmp;
+    tmp = tmp->next;
+  }
+
+  return NULL;
+}
+
 // int test_order(void) { }
 
+// ALLOCH - Allocate a memory chain block.
+// Instead of registers this is the main method of storing information.
+int I_ALLOCH(CPU* cpu) {
+  if (! cpu->memory_enabled) cpu_raise(cpu, 102);
+  byte arg1 = cpu_next1(cpu);
+
+  (void)cpu_alloc(cpu, arg1);
+
+  return 0;
+}
+
+// PUT - Put byte into chain node N at location L
+// PUT B N L
+int I_PUT(CPU* cpu) {
+  if (!cpu->memory_enabled) cpu_raise(cpu, 102);
+
+  byte B = cpu_next1(cpu);
+  byte N = cpu_next1(cpu);
+  byte L = cpu_next1(cpu);
+
+  RollocNode * node = node_at(cpu, N); 
+
+  if (node->size < L) {
+    cpu_raise(cpu, 744);
+  }
+
+  int* n =  node->ptr;
+  n[L] = B;
+
+  return (0);
+}
+
 int main(void) {
-  test_reusable_chunks();
-  test_cpu_instruction_hash();
-  test_cpu_make();
+  struct cpu_settings_t settings;
+  settings.silent = true;
+  settings.allow_memory_allocation = true;
+  settings.max_memory_allocation_pool = -1;
+
+  CPU * cpu = vcpu(settings);
+
+  ivt_map(cpu->ivt, I_ALLOCH, "ALLOCH", true);
+  ivt_map(cpu->ivt, I_PUT, "PUT", true);
+
+  byte * sample_data = malloc(30 * sizeof (byte));
+
+  sample_data[0] = 0x00c0;
+  sample_data[1] = 5;
+  sample_data[2] = 0x0046;
+  sample_data[3] = 17;
+  sample_data[4] = 0;
+  sample_data[5] = 2;
+  sample_data[6] = MAGIC_STOP;
+
+  cpu_toggle(cpu);
+  cpu_exe(cpu, sample_data, 5);
+
+  cpu_ivtr0(cpu);
+
+  printf("allocated blocks: %ld\n", cpu_blks(cpu));
+  printf("memory in use: %ld bytes\n", cpu_tum(cpu));
+  int * ptr2 = cpu->memory_chain->root->ptr;
+  printf("memory chain block 0 at 2: %d\n",ptr2[2]);
 }
 
