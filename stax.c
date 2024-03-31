@@ -429,8 +429,10 @@ void* cpu_alloc(CPU* vcpu, size_t size) {
     return NULL;
   }
 
-  RollocNode* chunk = r_new_chunk(vcpu->memory_chain, size);
+  RollocNode* chunk = r_new_chunk(vcpu->memory_chain, size * sizeof(byte));
   assert(chunk);
+
+  memset(chunk, 0, size * sizeof(byte));
 
   return (chunk);
 }
@@ -609,7 +611,7 @@ int I_ALLOCH(CPU* cpu) {
   byte arg1 = cpu_next1(cpu);
 
   (void)cpu_alloc(cpu, arg1);
-
+  
   return 0;
 }
 
@@ -622,13 +624,17 @@ int I_PUT(CPU* cpu) {
   byte N = cpu_next1(cpu);
   byte L = cpu_next1(cpu);
 
+  printf("%d\n", N);
+
   RollocNode * node = node_at(cpu, N); 
 
   if (node->size < L) {
     cpu_raise(cpu, 744);
   }
 
-  int* n =  node->ptr;
+  assert(node->ptr);
+
+  int* n = node->ptr;
   n[L] = B;
 
   return (0);
@@ -656,13 +662,15 @@ int main(void) {
   sample_data[6] = MAGIC_STOP;
 
   cpu_toggle(cpu);
-  cpu_exe(cpu, sample_data, 5);
+  cpu_exe(cpu, sample_data, 10);
 
   cpu_ivtr0(cpu);
 
   printf("allocated blocks: %ld\n", cpu_blks(cpu));
   printf("memory in use: %ld bytes\n", cpu_tum(cpu));
-  int * ptr2 = cpu->memory_chain->root->ptr;
-  printf("memory chain block 0 at 2: %d\n",ptr2[2]);
+  
+  int* ptr2 = cpu->memory_chain->root->ptr;
+
+  printf("memory chain block 1 at 2 %d\n", ptr2[2]);
 }
 
