@@ -254,7 +254,7 @@ void ord_append(Order* order, byte * data, int size) {
     order->data = calloc(size, sizeof(byte));
     order->data_size = size;
   } else {
-    order->data = realloc(order->data, order->data_size + size);
+    order->data = realloc(order->data, (order->data_size + size) * sizeof(byte));
     order->data_size += size;
     p = order->data_size;
   }
@@ -652,9 +652,24 @@ int I_PUT(CPU* cpu) {
   int* n = node->ptr;
   n[L] = B;
 
-  printf("at: %d\n", n[L]);
-
   return (0);
+}
+
+// MOVE - Move byte from one chain into another
+// ** NOTE ** this function requires TWO memory allocations
+// MOVE SRC POS DEST POS
+int I_MOVE(CPU* cpu) {
+  if (!cpu->memory_enabled) cpu_raise(cpu, 102);
+
+
+}
+
+// OPEN_FD - Opens a file descriptor and places it into a block of
+// memory
+// OPENFD requires memory to be enabled.
+int I_OPEN_FD(CPU* cpu) {
+  if (!cpu->memory_enabled) cpu_raise(cpu, 102);
+
 }
 
 int main(void) {
