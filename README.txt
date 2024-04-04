@@ -29,8 +29,13 @@
 1.3 CPU Structure
 =====
   The CPU is organized with a standard reader to process sequencial
-  instructions.
+  instructions. It also contains an internal memory chain which isn't allocated
+  if memory_enabled is disabled.
 
+  Raw memory can be allocated by the CPU, however, certain sizes of objects may
+  need to be considered, depending on the alignments needed.
+
+  The ALLOC instruction allocates memory into a new block. 
 
 3.0 Instructions
 =====
@@ -42,3 +47,7 @@
   System instructions are ran at the CPU VK level, meaning that the permissions
   these instructions possess are virtually endless, with the primary permission
   being that 
+
+4.0 SYSTEM-dependent instructions
+=====
+  WIP.
