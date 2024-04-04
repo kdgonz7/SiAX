@@ -661,15 +661,21 @@ int I_PUT(CPU* cpu) {
 int I_MOVE(CPU* cpu) {
   if (!cpu->memory_enabled) cpu_raise(cpu, 102);
 
-
+  /* TODO */
 }
 
-// OPEN_FD - Opens a file descriptor and places it into a block of
+// OPEN_FD - place a file dsecriptor into a separate block of memory.
 // memory
 // OPENFD requires memory to be enabled.
+// OPENFD {addr}
+// refer to Unix FD documentation for usages.
 int I_OPEN_FD(CPU* cpu) {
   if (!cpu->memory_enabled) cpu_raise(cpu, 102);
 
+  int* pt = cpu_alloc(cpu, 50 * sizeof(int));
+  pt[0] = cpu_next1(cpu);
+
+  return (0);
 }
 
 int main(void) {
