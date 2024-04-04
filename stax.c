@@ -260,7 +260,7 @@ void ord_append(Order* order, byte * data, int size) {
   }
 
   // offset order->data by p in case we are appending data.
-  memcpy(order->data + p, data, size);
+  memcpy(order->data + p, data, size * sizeof(byte));
 }
 
 
@@ -428,11 +428,16 @@ void* cpu_alloc(CPU* vcpu, size_t size) {
     cpu_raise(vcpu, 102); // 102 - MPDENIED
     return NULL;
   }
+  
+  if (vcpu->verbose) {
+    printf("stax: [CPU]: allocation requested for %ld bytes\n", size);
+  }
 
-  RollocNode* chunk = r_new_chunk(vcpu->memory_chain, size * sizeof(byte));
+  RollocNode* chunk = r_new_chunk(vcpu->memory_chain, size);
   assert(chunk);
+  assert(chunk->ptr);
 
-  memset(chunk, 0, size * sizeof(byte));
+  memset(chunk->ptr, 0, size); /* set the pointer bytes to 0 */
 
   return (chunk);
 }
@@ -458,7 +463,10 @@ int cpu_ivtr0(CPU * vcpu) {
   
   while (cpu_cur(vcpu) != MAGIC_STOP) {
     byte n = cpu_next1(vcpu);
-
+   
+    if (vcpu->verbose) 
+      printf("stax: [CPU]: now %d\n", n);
+    
     if (n == -1) {
       if (vcpu->verbose) {
         printf("stax: [CPU]: EOB(399): premature end\n");
@@ -595,7 +603,11 @@ RollocNode* node_at(CPU* cpu, size_t place) {
   RollocNode* tmp = cpu->memory_chain->root;
 
   while (tmp) {
-    if (p == place) return tmp;
+    if (p == place) {
+      if (cpu->verbose)
+        printf("stax: [CPU]: node_at: found memory node of size %d at position %d\n", tmp->size, p);
+      return tmp;
+    }
     tmp = tmp->next;
   }
 
@@ -610,7 +622,7 @@ int I_ALLOCH(CPU* cpu) {
   if (! cpu->memory_enabled) cpu_raise(cpu, 102);
   byte arg1 = cpu_next1(cpu);
 
-  (void)cpu_alloc(cpu, arg1);
+  (void) cpu_alloc(cpu, arg1);
   
   return 0;
 }
@@ -624,18 +636,23 @@ int I_PUT(CPU* cpu) {
   byte N = cpu_next1(cpu);
   byte L = cpu_next1(cpu);
 
-  printf("%d\n", N);
-
   RollocNode * node = node_at(cpu, N); 
+
+  assert(node);
+
+  if (cpu->verbose) {
+    printf("stax: [CPU]: PUT: found block of size %d @ pos %d\n", node->size, N);
+  }
 
   if (node->size < L) {
     cpu_raise(cpu, 744);
+    return 1;
   }
-
-  assert(node->ptr);
-
+ 
   int* n = node->ptr;
   n[L] = B;
+
+  printf("at: %d\n", n[L]);
 
   return (0);
 }
@@ -662,7 +679,7 @@ int main(void) {
   sample_data[6] = MAGIC_STOP;
 
   cpu_toggle(cpu);
-  cpu_exe(cpu, sample_data, 10);
+  cpu_exe(cpu, sample_data, 7);
 
   cpu_ivtr0(cpu);
 
