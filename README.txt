@@ -51,6 +51,7 @@
 =====
   - `00c0` : ALLOCH - Allocates a block on the memory chain.
   - `0046` : PUT    - Puts a byte into a memory chain block.
+  - `00be` : LOADS  - Load a string into the data header.
 
 3.1 Instruction Permissions
 =====
