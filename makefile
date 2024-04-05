@@ -4,5 +4,4 @@ OUTFILE=stax
 OPTIMIZE=-O0
 
 all:
-  $(CC) $(OPTIMIZE) $(SRC) -o $(OUTFILE)
-
+    $(CC) $(OPTIMIZE) $(SRC) -o $(OUTFILE)

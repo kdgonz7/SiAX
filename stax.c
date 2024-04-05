@@ -300,9 +300,6 @@ byte ord_cur(Order* order) {
   return order->data[order->ref->pc];
 }
 
-
-
-
 typedef int (*ivtfn32)(CPU*);
 
 struct cpu_settings_t {
@@ -310,6 +307,8 @@ struct cpu_settings_t {
   int max_memory_allocation_pool;   // The max amount of memory that can be allocated from anonymous requests. (Note: -1 disables this)
   bool silent;
 };
+
+void* cpu_alloc(CPU*, size_t);
 
 // initializes a virtual CPU with settings `settings`
 CPU * vcpu(struct cpu_settings_t settings) {
@@ -344,6 +343,13 @@ CPU * vcpu(struct cpu_settings_t settings) {
     if (cpu->verbose) {
       printf("stax: [CPU]: loaded volatile memory table\n");
     }
+
+    /* data header */
+    (void) cpu_alloc(cpu, 500 * sizeof(int));
+
+    assert(cpu->memory_chain->root);
+  } else {
+    cpu->memory_chain = NULL;
   }
 
   return cpu; // TODO 
@@ -433,6 +439,10 @@ void* cpu_alloc(CPU* vcpu, size_t size) {
   RollocNode* chunk = r_new_chunk(vcpu->memory_chain, size);
   assert(chunk);
   assert(chunk->ptr);
+
+  if (vcpu->verbose) {
+    printf("stax: [CPU]: allocation success.\n"); 
+  }
 
   memset(chunk->ptr, 0, size); /* set the pointer bytes to 0 */
 
@@ -661,6 +671,16 @@ int I_MOVE(CPU* cpu) {
   /* TODO */
 }
 
+// LOADSTR - loads a string into the data header.
+// DOES NOT reset it. Overlapping memory is possible.
+// It is crucial to ensure the memory is either shifted or
+// reset.
+int I_LOADSTR(CPU* cpu) {
+  if (!cpu->memory_enabled) cpu_raise(cpu, 102);
+
+  /* TODO */
+}
+
 // OPEN_FD - place a file descriptor into a separate block of memory.
 // memory
 // OPENFD requires memory to be enabled.
@@ -677,7 +697,7 @@ int I_OPEN_FD(CPU* cpu) {
 
 int main(void) {
   struct cpu_settings_t settings;
-  settings.silent = true;
+  settings.silent = false;
   settings.allow_memory_allocation = true;
   settings.max_memory_allocation_pool = -1;
 
@@ -685,6 +705,7 @@ int main(void) {
 
   ivt_map(cpu->ivt, I_ALLOCH, "ALLOCH", true);
   ivt_map(cpu->ivt, I_PUT, "PUT", true);
+  ivt_map(cpu->ivt, I_LOADSTR, "LOADSTR", true);
 
   byte * sample_data = malloc(30 * sizeof (byte));
 
@@ -692,7 +713,7 @@ int main(void) {
   sample_data[1] = 5;
   sample_data[2] = 0x0046;
   sample_data[3] = 17;
-  sample_data[4] = 0;
+  sample_data[4] = 1;
   sample_data[5] = 2;
   sample_data[6] = MAGIC_STOP;
 
