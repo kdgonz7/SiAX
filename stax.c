@@ -23,9 +23,6 @@
                           // full access to the stack, and results can be pushed
                           // into the stack.
 
-#define PUSH  0xAD        // PUSH [n] - pushes N into the stack.
-#define POP   0xAC        // POP - pops an item from the stack and releases it from
-                          // memory.
 #define MAGIC_STOP 0xEFB  // To end the bytecode.
 
 #define IVT_SIZE 199
@@ -664,7 +661,7 @@ int I_MOVE(CPU* cpu) {
   /* TODO */
 }
 
-// OPEN_FD - place a file dsecriptor into a separate block of memory.
+// OPEN_FD - place a file descriptor into a separate block of memory.
 // memory
 // OPENFD requires memory to be enabled.
 // OPENFD {addr}
