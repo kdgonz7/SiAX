@@ -35,7 +35,17 @@
   Raw memory can be allocated by the CPU, however, certain sizes of objects may
   need to be considered, depending on the alignments needed.
 
-  The ALLOC instruction allocates memory into a new block. 
+  The ALLOC instruction allocates memory into a new block. And as for the CPU
+  block structure the first block (0) is always reserved for data/information.
+  It is NOT reusable. This is simply a block of memory which contains around 500
+  * SIZEOF int bytes for storage. And should only be used with LOADSTR
+  instructions, when you need to quickly access and load memory.
+
+  The UNLOAD instruction unloads memory from the data block.
+
+        >     LOADSTR 5 65 66 67 68 69      ; 'ABCDE' loaded into volatile block
+        >     ...                           ; actions w/ volatile data
+        >     UNLOAD                        ; remove all memory (reset)
 
 3.0 Instructions
 =====
