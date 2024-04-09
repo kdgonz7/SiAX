@@ -43,7 +43,6 @@
 
   The UNLOAD instruction unloads memory from the data block.
 
-        >     LOADSTR 5 65 66 67 68 69      ; 'ABCDE' loaded into volatile block
         >     ...                           ; actions w/ volatile data
         >     UNLOAD                        ; remove all memory (reset)
 
@@ -51,7 +50,9 @@
 =====
   - `00c0` : ALLOCH - Allocates a block on the memory chain.
   - `0046` : PUT    - Puts a byte into a memory chain block.
-  - `00be` : LOADS  - Load a string into the data header.
+  - `0092` : OPENFD - Opens a file descriptor onto a new memory block.
+  - `0002` : WRITFD - Writes to the closest file descriptor.
+
 
 3.1 Instruction Permissions
 =====
@@ -61,4 +62,13 @@
 
 4.0 SYSTEM-dependent instructions
 =====
-  WIP.
+  Certain technicalities of the Stack VM depend on certain platforms, such as
+  file descriptors, which would most likely require a platform conversion like
+  Cygwin on Windows-based devices.
+
+4.1 Descriptor Locality
+=====
+  When a file descriptor is opened, there is a memory block created with the
+  number of the file descriptor. These blocks contain a certain address to
+  define them. So when a search is made (e.g. FIRST_FD), the first
+  descriptor (block with the address) is returned. 
