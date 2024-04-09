@@ -7,6 +7,8 @@
 #include <assert.h>
 #include <string.h>
 
+#include <unistd.h>
+
 /*
   What is StaxVM?
   
@@ -343,11 +345,6 @@ CPU * vcpu(struct cpu_settings_t settings) {
     if (cpu->verbose) {
       printf("stax: [CPU]: loaded volatile memory table\n");
     }
-
-    /* data header */
-    (void) cpu_alloc(cpu, 500 * sizeof(int));
-
-    assert(cpu->memory_chain->root);
   } else {
     cpu->memory_chain = NULL;
   }
@@ -671,16 +668,6 @@ int I_MOVE(CPU* cpu) {
   /* TODO */
 }
 
-// LOADSTR - loads a string into the data header.
-// DOES NOT reset it. Overlapping memory is possible.
-// It is crucial to ensure the memory is either shifted or
-// reset.
-int I_LOADSTR(CPU* cpu) {
-  if (!cpu->memory_enabled) cpu_raise(cpu, 102);
-
-  /* TODO */
-}
-
 // OPEN_FD - place a file descriptor into a separate block of memory.
 // memory
 // OPENFD requires memory to be enabled.
@@ -689,11 +676,48 @@ int I_LOADSTR(CPU* cpu) {
 int I_OPEN_FD(CPU* cpu) {
   if (!cpu->memory_enabled) cpu_raise(cpu, 102);
 
+  /* create a flagged block of memory, if searched it can provide
+  a marker for a file descriptor block. */
+
   int* pt = cpu_alloc(cpu, 50 * sizeof(int));
-  pt[0] = cpu_next1(cpu);
+  
+  pt[0] = 0xFF;
+  pt[1] = cpu_next1(cpu);
+
 
   return (0);
 }
+
+// WRITE_FD - writes to the nearest open file descriptor
+int I_WRITE_FD(CPU* cpu) {
+  RollocNode* node = cpu->memory_chain->root;
+
+  int fd = 0;
+
+  while (node) {
+    int p0 = ((int*)node->ptr)[0];
+    int p1 = ((int*)node->ptr)[1];
+
+    if ((p0) == 0xFF) {
+      fd = p1;
+    }
+  }
+
+  byte size = cpu_next1(cpu);
+
+  byte* data = calloc(size, sizeof(int));
+
+  for (int i = 0 ; i < size ; ++ i) {
+    data[i] = cpu_next1(cpu);
+  }
+
+  write(fd, data, size);
+
+  printf("new fd: %d\n", fd);
+}
+
+// CLOSE_FD - free the first file descriptor block.
+
 
 int main(void) {
   struct cpu_settings_t settings;
@@ -705,16 +729,17 @@ int main(void) {
 
   ivt_map(cpu->ivt, I_ALLOCH, "ALLOCH", true);
   ivt_map(cpu->ivt, I_PUT, "PUT", true);
-  ivt_map(cpu->ivt, I_LOADSTR, "LOADSTR", true);
+  ivt_map(cpu->ivt, I_OPEN_FD, "OPENFD", true);
+  ivt_map(cpu->ivt, I_WRITE_FD, "WRITEFD", true);
 
   byte * sample_data = malloc(30 * sizeof (byte));
 
-  sample_data[0] = 0x00c0;
-  sample_data[1] = 5;
-  sample_data[2] = 0x0046;
-  sample_data[3] = 17;
-  sample_data[4] = 1;
-  sample_data[5] = 2;
+  sample_data[0] = 0x0092;
+  sample_data[1] = 1;
+  sample_data[2] = 0x0002;
+  sample_data[3] = 2;
+  sample_data[4] = 65;
+  sample_data[5] = 66;
   sample_data[6] = MAGIC_STOP;
 
   cpu_toggle(cpu);
