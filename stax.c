@@ -166,6 +166,28 @@ void r_free_list(RollocFreeList* freelist) {
   free(freelist);
 }
 
+void r_free_node(RollocFreeList* list, RollocNode* node) {
+  assert(node);
+
+  if (node->reusable) {
+    memset(node->ptr, 0, node->size);
+  } else {
+    RollocNode* j = list->root;
+
+    while (j) {
+      if (j->next == node) {
+        free(node->ptr);
+        free(node);
+        node = NULL;
+        j->next = NULL;
+        break;
+      } else {
+        j = j->next;
+      }
+    }
+  }
+}
+
 // simple function to hash a string into a number
 int cpu_hash(const char* N, size_t m) {
   int r = 1;
@@ -674,6 +696,8 @@ int I_MOVE(CPU* cpu) {
   if (!cpu->memory_enabled) cpu_raise(cpu, 102);
 
   /* TODO */
+
+  return (0);
 }
 
 // OPEN_FD - place a file descriptor into a separate block of memory.
@@ -694,8 +718,6 @@ int I_OPEN_FD(CPU* cpu) {
   ((int*)fdb->ptr)[0] = cpu_next1(cpu);
 
   fdb->flag = FILEDESC;
-  printf("%ld\n", cpu_blks(cpu));
-
 
   return (0);
 }
@@ -724,7 +746,7 @@ int I_WRITE_FD(CPU* cpu) {
 
   byte size = cpu_next1(cpu);
 
-  byte* data = calloc(size, sizeof(byte));
+  char* data = calloc(size, sizeof(char));
 
   int i = 0;
 
@@ -741,7 +763,17 @@ int I_WRITE_FD(CPU* cpu) {
 
 // CLOSE_FD - free the first file descriptor block.
 int I_CLOSE_FD(CPU* cpu) {
+  RollocNode* root  = cpu->memory_chain->root;
+  RollocNode* jr    = NULL;
 
+  while (root) {
+    if (root->flag == FILEDESC) {
+      r_free_node(cpu->memory_chain, root);
+      break;
+    } else {
+      root = root->next;
+    }
+  }
 }
 
 int main(void) {
@@ -756,6 +788,7 @@ int main(void) {
   ivt_map(cpu->ivt, I_PUT, "PUT", true);
   ivt_map(cpu->ivt, I_OPEN_FD, "OPENFD", true);
   ivt_map(cpu->ivt, I_WRITE_FD, "WRITEFD", true);
+  ivt_map(cpu->ivt, I_CLOSE_FD, "CLOSEFD", true);
 
   byte * sample_data = malloc(30 * sizeof (byte));
 
@@ -765,10 +798,11 @@ int main(void) {
   sample_data[3] = 2;
   sample_data[4] = 65;
   sample_data[5] = 66;
-  sample_data[6] = MAGIC_STOP;
+  sample_data[6] = 0x00aa;
+  sample_data[7] = MAGIC_STOP;
 
   cpu_toggle(cpu);
-  cpu_exe(cpu, sample_data, 7);
+  cpu_exe(cpu, sample_data, 10);
 
   cpu_ivtr0(cpu);
 
