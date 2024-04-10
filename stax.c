@@ -34,10 +34,15 @@ typedef struct CPU CPU;
 typedef int (*ivtfn32)(CPU*);
 typedef int byte;
 
+typedef enum RollocFlag {
+  FILEDESC, // file descriptor block
+} RollocFlag;
+
 typedef struct RollocNode {
   void * ptr;                 // the pointer to the memory
   int size;                   // size of the memory
   bool reusable;              // can this block of memory be reused?
+  RollocFlag flag;            // is this memory special?
   struct RollocNode * next;   // the next memory node
 } RollocNode;
 
@@ -684,6 +689,8 @@ int I_OPEN_FD(CPU* cpu) {
   pt[0] = 0xFF;
   pt[1] = cpu_next1(cpu);
 
+  printf("%ld\n", cpu_blks(cpu));
+
 
   return (0);
 }
@@ -693,13 +700,17 @@ int I_WRITE_FD(CPU* cpu) {
   RollocNode* node = cpu->memory_chain->root;
 
   int fd = 0;
+  int pos = 0;
 
   while (node) {
-    int p0 = ((int*)node->ptr)[0];
-    int p1 = ((int*)node->ptr)[1];
+    if (cpu->verbose) {
+      printf("stax: [CPU]: found position %d as marked fd\n", pos);
+    }
+    if (node->flag == FILEDESC) {
 
-    if ((p0) == 0xFF) {
-      fd = p1;
+    } else {
+      node = node->next;
+      pos++;
     }
   }
 
