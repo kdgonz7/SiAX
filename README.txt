@@ -48,10 +48,11 @@
 
 3.0 Instructions
 =====
-  - `00c0` : ALLOCH - Allocates a block on the memory chain.
-  - `0046` : PUT    - Puts a byte into a memory chain block.
-  - `0092` : OPENFD - Opens a file descriptor onto a new memory block.
-  - `0002` : WRITFD - Writes to the closest file descriptor.
+  - `00c0` : ALLOCH - Allocates a block on the memory chain.                  O(1)
+  - `0046` : PUT    - Puts a byte into a memory chain block.                  O(1)(bestcase) O(n)(worstcase)
+  - `0092` : OPENFD - Opens a file descriptor onto a new memory block.        O(1)
+  - `0002` : WRITFD - Writes to the closest file descriptor.                  O(n)
+  - `00aa` : CLOSFD - Closes/frees the first linear file descriptor.          O(n)
 
 
 3.1 Instruction Permissions
