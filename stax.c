@@ -36,6 +36,7 @@ typedef int byte;
 
 typedef enum RollocFlag {
   FILEDESC, // file descriptor block
+  NONE,     // none 
 } RollocFlag;
 
 typedef struct RollocNode {
@@ -53,6 +54,7 @@ typedef struct RollocFreeList {
 RollocFreeList * r_new_free_list() {
   RollocFreeList * list = malloc(sizeof(RollocFreeList));
   assert(list);
+
   list->root = NULL;
 
   return list;
@@ -67,6 +69,7 @@ RollocNode * r_node(int size) {
   n->size = size;
   n->reusable = false;
   n->next = NULL;
+  n->flag = NONE;
   
   return n;
 }
@@ -684,11 +687,13 @@ int I_OPEN_FD(CPU* cpu) {
   /* create a flagged block of memory, if searched it can provide
   a marker for a file descriptor block. */
 
-  int* pt = cpu_alloc(cpu, 50 * sizeof(int));
-  
-  pt[0] = 0xFF;
-  pt[1] = cpu_next1(cpu);
+  RollocNode * fdb = r_new_chunk(cpu->memory_chain, 20 * sizeof(byte));
 
+  memset(fdb->ptr, 0, fdb->size);
+  
+  ((int*)fdb->ptr)[0] = cpu_next1(cpu);
+
+  fdb->flag = FILEDESC;
   printf("%ld\n", cpu_blks(cpu));
 
 
@@ -703,11 +708,12 @@ int I_WRITE_FD(CPU* cpu) {
   int pos = 0;
 
   while (node) {
-    if (cpu->verbose) {
-      printf("stax: [CPU]: found position %d as marked fd\n", pos);
-    }
     if (node->flag == FILEDESC) {
+      assert(node->ptr);
+      
+      fd = ((int*) node->ptr)[0];
 
+      break;
     } else {
       node = node->next;
       pos++;
