@@ -701,6 +701,8 @@ int I_OPEN_FD(CPU* cpu) {
 }
 
 // WRITE_FD - writes to the nearest open file descriptor
+// this function does not take into account alignment, 
+// as it converts the 32-bit input into 8-bit at execution
 int I_WRITE_FD(CPU* cpu) {
   RollocNode* node = cpu->memory_chain->root;
 
@@ -722,19 +724,25 @@ int I_WRITE_FD(CPU* cpu) {
 
   byte size = cpu_next1(cpu);
 
-  byte* data = calloc(size, sizeof(int));
+  byte* data = calloc(size, sizeof(byte));
 
-  for (int i = 0 ; i < size ; ++ i) {
+  int i = 0;
+
+  for (i = 0 ; i < size ; i ++) {
     data[i] = cpu_next1(cpu);
   }
 
   write(fd, data, size);
 
-  printf("new fd: %d\n", fd);
+  free(data);
+
+  return 0;
 }
 
 // CLOSE_FD - free the first file descriptor block.
+int I_CLOSE_FD(CPU* cpu) {
 
+}
 
 int main(void) {
   struct cpu_settings_t settings;
