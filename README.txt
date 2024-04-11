@@ -1,3 +1,5 @@
+SiAX/STAX README - Kai D.
+
 1.0 What is STAX?
 ======
   Stax is a VM designed to be strict and memory safe.
