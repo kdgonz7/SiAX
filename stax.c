@@ -565,6 +565,30 @@ size_t cpu_tum(CPU* cpu) {
   return dsz;
 }
 
+// return 1 if CPU is NULL
+// return 2 if CPU isn't off.
+//
+// free all the CPU Memory, and the CPU itself
+int cpu_free(CPU* cpu) {
+  if (!cpu) return 1;
+  if (cpu->state != OFF) return 2;
+
+  if (cpu->memory_enabled) {
+    r_free_list(cpu->memory_chain);
+  }
+
+  free ( cpu->cpes );
+  free ( cpu->internal->data );
+  free ( cpu->internal );
+  free ( cpu->ivt->ivt );
+  free ( cpu->ivt );
+  free ( cpu );
+
+  cpu = NULL;
+
+  return 0;
+}
+
 int test_reusable_chunks(void) {
   RollocFreeList * list = r_new_free_list();
 
@@ -774,6 +798,8 @@ int I_CLOSE_FD(CPU* cpu) {
       root = root->next;
     }
   }
+
+  return (0);
 }
 
 int main(void) {
@@ -812,5 +838,10 @@ int main(void) {
   int* ptr2 = cpu->memory_chain->root->ptr;
 
   printf("memory chain block 1 at 2 %d\n", ptr2[2]);
+
+  cpu_toggle(cpu); // turn CPU off
+
+  free(sample_data);
+  cpu_free(cpu);
 }
 
