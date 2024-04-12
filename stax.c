@@ -677,7 +677,10 @@ RollocNode* node_at(CPU* cpu, size_t place) {
 // ALLOCH - Allocate a memory chain block.
 // Instead of registers this is the main method of storing information.
 int I_ALLOCH(CPU* cpu) {
-  if (! cpu->memory_enabled) cpu_raise(cpu, 102);
+  if (! cpu->memory_enabled) {
+    cpu_raise(cpu, 102);
+    return (0);
+  }
   byte arg1 = cpu_next1(cpu);
 
   (void) cpu_alloc(cpu, arg1);
@@ -688,7 +691,10 @@ int I_ALLOCH(CPU* cpu) {
 // PUT - Put byte into chain node N at location L
 // PUT B N L
 int I_PUT(CPU* cpu) {
-  if (!cpu->memory_enabled) cpu_raise(cpu, 102);
+  if (!cpu->memory_enabled) {
+    cpu_raise(cpu, 102);
+    return (0);
+  }
 
   byte B = cpu_next1(cpu);
   byte N = cpu_next1(cpu);
@@ -717,9 +723,24 @@ int I_PUT(CPU* cpu) {
 // ** NOTE ** this function requires TWO memory allocations
 // MOVE SRC POS DEST POS
 int I_MOVE(CPU* cpu) {
-  if (!cpu->memory_enabled) cpu_raise(cpu, 102);
+  if (!cpu->memory_enabled) { 
+    cpu_raise(cpu, 102);
+    return (0);
+  }
 
-  /* TODO */
+  byte src  = cpu_next1(cpu);
+  byte pos1 = cpu_next1(cpu);
+  byte dest = cpu_next1(cpu);
+  byte pos2 = cpu_next1(cpu);
+
+  RollocNode* chp = node_at(cpu, src);
+
+  assert(chp && chp->ptr);
+
+  if (chp->size < pos1) {
+    cpu_raise(cpu, 744);
+    return (0);
+  }
 
   return (0);
 }
@@ -730,7 +751,10 @@ int I_MOVE(CPU* cpu) {
 // OPENFD {addr}
 // refer to Unix FD documentation for usages.
 int I_OPEN_FD(CPU* cpu) {
-  if (!cpu->memory_enabled) cpu_raise(cpu, 102);
+  if (!cpu->memory_enabled) {
+    cpu_raise(cpu, 102);
+    return (0);
+  }
 
   /* create a flagged block of memory, if searched it can provide
   a marker for a file descriptor block. */
