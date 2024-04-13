@@ -9,6 +9,8 @@
 
 #include <unistd.h>
 
+#include "stax.h"
+
 /*
   What is StaxVM?
 
@@ -18,16 +20,9 @@
 
 // --- Headers ---
 #define INFO_HDR 0xAB
-
-// --- Instructions ---
-#define INT                                                                   \
-  0xEF // INT [id] - calls an interrupt, a blocking execution of
-       // a certain functionality in the system. Interrupts have
-       // full access to the stack, and results can be pushed
-       // into the stack.
-
 #define MAGIC_STOP 0xEFB // To end the bytecode.
 
+// --- Code-based Information ---
 #define IVT_SIZE 199
 #define MAX_EXCEPT 200
 
@@ -352,13 +347,6 @@ ord_append (Order *order, byte *data, int size)
   memcpy (order->data + p, data, size * sizeof (byte));
 }
 
-typedef enum cpu_state_t
-{
-  OFF,
-  WAITING,
-  ON
-} cpu_state_t;
-
 // The CPU
 //
 // Contains methods to change its state, pc, and its IVT
@@ -397,17 +385,6 @@ ord_cur (Order *order)
 }
 
 typedef int (*ivtfn32) (CPU *);
-
-struct cpu_settings_t
-{
-  bool allow_memory_allocation;   // Can additional memory be allocated?
-  int max_memory_allocation_pool; // The max amount of memory that can be
-                                  // allocated from anonymous requests. (Note:
-                                  // -1 disables this)
-  bool silent;
-};
-
-void *cpu_alloc (CPU *, size_t);
 
 // initializes a virtual CPU with settings `settings`
 CPU *
@@ -679,6 +656,11 @@ cpu_tum (CPU *cpu)
     }
 
   return dsz;
+}
+
+
+void cpu_instruction(CPU* vcpu, const char* instruction_name, ivtfn32 function, bool dev) {
+  ivt_map(vcpu->ivt, function, instruction_name, dev);
 }
 
 // return 1 if CPU is NULL
