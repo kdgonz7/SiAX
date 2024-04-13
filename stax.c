@@ -658,9 +658,11 @@ cpu_tum (CPU *cpu)
   return dsz;
 }
 
-
-void cpu_instruction(CPU* vcpu, const char* instruction_name, ivtfn32 function, bool dev) {
-  ivt_map(vcpu->ivt, function, instruction_name, dev);
+void
+cpu_instruction (CPU *vcpu, const char *instruction_name, ivtfn32 function,
+                 bool dev)
+{
+  ivt_map (vcpu->ivt, function, instruction_name, dev);
 }
 
 // return 1 if CPU is NULL
