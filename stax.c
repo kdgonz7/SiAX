@@ -457,6 +457,8 @@ cpu_raise (CPU *vcpu, int code)
     {
       vcpu->cpes_cap *= 2;
       vcpu->cpes = realloc (vcpu->cpes, vcpu->cpes_cap);
+
+      assert(vcpu->cpes);
     }
 
   // set the last member to the code
