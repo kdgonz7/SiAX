@@ -867,6 +867,7 @@ I_MOVE (CPU *cpu)
   byte pos2 = cpu_next1 (cpu);
 
   RollocNode *chp = node_at (cpu, src);
+  RollocNode *thp = node_at (cpu, dest);
 
   assert (chp && chp->ptr);
 
@@ -875,6 +876,9 @@ I_MOVE (CPU *cpu)
       cpu_raise (cpu, 744);
       return (0);
     }
+
+  ((int*)thp->ptr)[pos2] = ((int*)chp->ptr)[pos1];
+  ((int*)chp->ptr)[pos1] = 0;
 
   return (0);
 }
